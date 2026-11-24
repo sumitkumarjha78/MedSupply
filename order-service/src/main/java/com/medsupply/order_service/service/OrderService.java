@@ -1,11 +1,14 @@
 package com.medsupply.order_service.service;
 
+import com.medsupply.order_service.client.HospitalClient;
 import com.medsupply.order_service.client.InventoryClient;
 import com.medsupply.order_service.client.ProductClient;
+
 import com.medsupply.order_service.client.dto.InventoryResponse;
 import com.medsupply.order_service.client.dto.ProductResponse;
 import com.medsupply.order_service.dto.request.OrderItemRequest;
 import com.medsupply.order_service.dto.request.OrderRequest;
+import com.medsupply.order_service.dto.response.HospitalResponse;
 import com.medsupply.order_service.dto.response.OrderResponse;
 import com.medsupply.order_service.entity.Order;
 import com.medsupply.order_service.entity.OrderItem;
@@ -29,19 +32,36 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
+    private final HospitalClient hospitalClient;
 
     public OrderService(
             OrderRepository orderRepository,
             ProductClient productClient,
-            InventoryClient inventoryClient) {
+            InventoryClient inventoryClient,
+            HospitalClient hospitalClient) {
 
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.inventoryClient = inventoryClient;
+        this.hospitalClient = hospitalClient;
     }
 
     @Transactional
-    public Order createOrder(OrderRequest request, UUID buyerUserId) {
+    public Order createOrder(OrderRequest request, UUID buyerUserId, String userRole) {
+
+        UUID verifiedHospitalId = null;
+        String resolvedFacilityName;
+
+        if ("HOSPITAL_BUYER".equals(userRole)) {
+            HospitalResponse hospital = hospitalClient.getHospitalByUserId(buyerUserId);
+            verifiedHospitalId = hospital.id();
+            resolvedFacilityName = hospital.hospitalName();
+        } else {
+            if (request.getFacilityName() == null || request.getFacilityName().trim().isEmpty()) {
+                throw new IllegalArgumentException("Facility name is required");
+            }
+            resolvedFacilityName = request.getFacilityName().trim();
+        }
 
         Set<UUID> productIds = new HashSet<>();
 
@@ -56,7 +76,6 @@ public class OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
         BigDecimal totalAmount = BigDecimal.ZERO;
 
-        // Validate products and stock before deducting anything.
         for (OrderItemRequest itemRequest : request.getItems()) {
 
             UUID productId = itemRequest.getProductId();
@@ -110,7 +129,8 @@ public class OrderService {
 
         Order order = new Order();
         order.setOrderNumber(generateOrderNumber());
-        order.setFacilityName(request.getFacilityName());
+        order.setFacilityName(resolvedFacilityName);
+        order.setHospitalId(verifiedHospitalId);
         order.setBuyerUserId(buyerUserId);
         order.setTotalAmount(totalAmount);
         order.setStatus(OrderStatus.CONFIRMED);
@@ -119,8 +139,6 @@ public class OrderService {
             order.addItem(item);
         }
 
-        // Deduct stock. Restore previously deducted items if a later
-        // deduction or the database save fails.
         List<OrderItem> deductedItems = new ArrayList<>();
 
         try {
@@ -154,36 +172,29 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderResponse> getAllOrders(UUID buyerUserId) {
+    public List<OrderResponse> getAllOrders(UUID buyerUserId, String userRole) {
+        List<Order> orders = "ADMIN".equals(userRole)
+                ? orderRepository.findAll()
+                : orderRepository.findByBuyerUserId(buyerUserId);
 
-        return orderRepository.findByBuyerUserId(buyerUserId)
-                .stream()
+        return orders.stream()
                 .map(OrderResponse::fromEntity)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public Order getOrderById(UUID orderId, UUID buyerUserId) {
-
-        return orderRepository.findByIdAndBuyerUserId(orderId, buyerUserId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Order not found with ID: " + orderId
-                ));
+    public Order getOrderById(UUID orderId, UUID buyerUserId, String userRole) {
+        return findAccessibleOrder(orderId, buyerUserId, userRole);
     }
 
     @Transactional
     public Order updateOrderStatus(
             UUID orderId,
             OrderStatus newStatus,
-            UUID buyerUserId) {
+            UUID buyerUserId,
+            String userRole) {
 
-        Order order = orderRepository.findByIdAndBuyerUserId(
-                        orderId,
-                        buyerUserId
-                )
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Order not found with ID: " + orderId
-                ));
+        Order order = findAccessibleOrder(orderId, buyerUserId, userRole);
 
         if (newStatus == null) {
             throw new IllegalArgumentException("Order status is required");
@@ -205,7 +216,6 @@ public class OrderService {
             );
         }
 
-        // Restore stock before marking the order cancelled.
         for (OrderItem item : order.getItems()) {
             inventoryClient.restoreStock(
                     item.getProductId(),
@@ -216,6 +226,20 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELLED);
 
         return orderRepository.save(order);
+    }
+
+    private Order findAccessibleOrder(UUID orderId, UUID buyerUserId, String userRole) {
+        if ("ADMIN".equals(userRole)) {
+            return orderRepository.findById(orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Order not found with ID: " + orderId
+                    ));
+        }
+
+        return orderRepository.findByIdAndBuyerUserId(orderId, buyerUserId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Order not found with ID: " + orderId
+                ));
     }
 
     private String generateOrderNumber() {

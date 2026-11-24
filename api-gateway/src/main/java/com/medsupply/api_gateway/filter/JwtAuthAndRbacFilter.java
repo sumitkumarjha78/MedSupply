@@ -40,15 +40,17 @@ public class JwtAuthAndRbacFilter implements GlobalFilter, Ordered {
         String path = request.getURI().getPath();
         HttpMethod method = request.getMethod();
 
-        // 1. Allow preflight OPTIONS and /api/auth/** endpoints without JWT check
-        if (method == HttpMethod.OPTIONS || path.startsWith("/api/auth/")) {
+        // 1. Allow preflight OPTIONS and public /api/auth/** endpoints (excluding /api/auth/admin/**)
+        if (method == HttpMethod.OPTIONS
+                || (path.startsWith("/api/auth/") && !path.startsWith("/api/auth/admin"))) {
             return chain.filter(exchange);
         }
 
-        // 2. Block internal-only inventory endpoints from external gateway access
-        if (path.startsWith("/api/inventory/") && (path.endsWith("/deduct") || path.endsWith("/restore"))) {
+        // 2. Block internal-only endpoints from external gateway access
+        if (path.startsWith("/api/internal/")
+                || (path.startsWith("/api/inventory/") && (path.endsWith("/deduct") || path.endsWith("/restore")))) {
             return writeError(exchange, HttpStatus.FORBIDDEN,
-                    "Internal stock adjustment endpoints are not accessible via API Gateway");
+                    "Internal service endpoints are not accessible via API Gateway");
         }
 
         // 3. Require Bearer token on all protected routes
@@ -69,6 +71,8 @@ public class JwtAuthAndRbacFilter implements GlobalFilter, Ordered {
         String email = claims.getSubject();
         Object rawUserId = claims.get("userId");
         String userId = rawUserId != null ? String.valueOf(rawUserId) : "";
+        String hospitalId = claims.get("hospitalId", String.class);
+        String hospitalName = claims.get("hospitalName", String.class);
 
         if (role == null || !isAuthorized(path, method, role)) {
             return writeError(exchange, HttpStatus.FORBIDDEN,
@@ -81,9 +85,17 @@ public class JwtAuthAndRbacFilter implements GlobalFilter, Ordered {
                     headers.remove("X-User-Id");
                     headers.remove("X-User-Email");
                     headers.remove("X-User-Role");
+                    headers.remove("X-Hospital-Id");
+                    headers.remove("X-Hospital-Name");
                     headers.set("X-User-Id", userId);
                     headers.set("X-User-Email", email != null ? email : "");
                     headers.set("X-User-Role", role);
+                    if (hospitalId != null) {
+                        headers.set("X-Hospital-Id", hospitalId);
+                    }
+                    if (hospitalName != null) {
+                        headers.set("X-Hospital-Name", hospitalName);
+                    }
                 })
                 .build();
 
@@ -91,6 +103,11 @@ public class JwtAuthAndRbacFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isAuthorized(String path, HttpMethod method, String role) {
+        // Admin staff management: ADMIN only
+        if (path.startsWith("/api/auth/admin")) {
+            return "ADMIN".equals(role);
+        }
+
         // Products: GET -> all roles; POST/PUT/DELETE -> ADMIN only
         if (path.startsWith("/api/products")) {
             if (method == HttpMethod.GET) {

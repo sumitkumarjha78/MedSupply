@@ -26,9 +26,10 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(
             @Valid @RequestBody OrderRequest request,
-            @RequestHeader("X-User-Id") UUID buyerUserId) {
+            @RequestHeader("X-User-Id") UUID buyerUserId,
+            @RequestHeader("X-User-Role") String userRole) {
 
-        Order order = orderService.createOrder(request, buyerUserId);
+        Order order = orderService.createOrder(request, buyerUserId, userRole);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -37,17 +38,19 @@ public class OrderController {
 
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getAllOrders(
-            @RequestHeader("X-User-Id") UUID buyerUserId) {
+            @RequestHeader("X-User-Id") UUID buyerUserId,
+            @RequestHeader("X-User-Role") String userRole) {
 
-        return ResponseEntity.ok(orderService.getAllOrders(buyerUserId));
+        return ResponseEntity.ok(orderService.getAllOrders(buyerUserId, userRole));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getOrderById(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") UUID buyerUserId) {
+            @RequestHeader("X-User-Id") UUID buyerUserId,
+            @RequestHeader("X-User-Role") String userRole) {
 
-        Order order = orderService.getOrderById(id, buyerUserId);
+        Order order = orderService.getOrderById(id, buyerUserId, userRole);
 
         return ResponseEntity.ok(OrderResponse.fromEntity(order));
     }
@@ -56,12 +59,14 @@ public class OrderController {
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable UUID id,
             @Valid @RequestBody OrderStatusRequest request,
-            @RequestHeader("X-User-Id") UUID buyerUserId) {
+            @RequestHeader("X-User-Id") UUID buyerUserId,
+            @RequestHeader("X-User-Role") String userRole) {
 
         Order order = orderService.updateOrderStatus(
                 id,
                 request.getStatus(),
-                buyerUserId
+                buyerUserId,
+                userRole
         );
 
         return ResponseEntity.ok(OrderResponse.fromEntity(order));

@@ -2,6 +2,7 @@
 package com.medsupply.order_service.entity;
 
 import jakarta.persistence.*;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -45,6 +46,14 @@ public class Order {
 
     @Column(nullable = false)
     private Instant updatedAt;
+
+    @Setter
+    @Column(name = "hospital_id")
+    private UUID hospitalId;
+
+    public UUID getHospitalId() {
+        return hospitalId;
+    }
 
     public Order() {
     }

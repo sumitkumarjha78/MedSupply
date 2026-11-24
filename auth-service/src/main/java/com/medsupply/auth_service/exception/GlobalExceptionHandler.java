@@ -23,7 +23,15 @@ public class GlobalExceptionHandler {
             String error,
             Map<String, String> errors
     ) {}
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
+        return buildError(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
 
+    @ExceptionHandler(HospitalNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleHospitalNotFound(HospitalNotFoundException ex) {
+        return buildError(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
         return buildError(HttpStatus.CONFLICT, ex.getMessage());

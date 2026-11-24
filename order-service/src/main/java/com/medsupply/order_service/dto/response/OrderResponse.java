@@ -1,4 +1,3 @@
-
 package com.medsupply.order_service.dto.response;
 
 import com.medsupply.order_service.entity.Order;
@@ -12,6 +11,7 @@ import java.util.UUID;
 public class OrderResponse {
 
     private UUID id;
+    private UUID hospitalId;
     private String orderNumber;
     private String facilityName;
     private UUID buyerUserId;
@@ -23,6 +23,7 @@ public class OrderResponse {
 
     public OrderResponse(
             UUID id,
+            UUID hospitalId,
             String orderNumber,
             String facilityName,
             UUID buyerUserId,
@@ -33,6 +34,7 @@ public class OrderResponse {
             Instant updatedAt) {
 
         this.id = id;
+        this.hospitalId = hospitalId;
         this.orderNumber = orderNumber;
         this.facilityName = facilityName;
         this.buyerUserId = buyerUserId;
@@ -53,6 +55,7 @@ public class OrderResponse {
 
         return new OrderResponse(
                 order.getId(),
+                order.getHospitalId(),
                 order.getOrderNumber(),
                 order.getFacilityName(),
                 order.getBuyerUserId(),
@@ -66,6 +69,10 @@ public class OrderResponse {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getHospitalId() {
+        return hospitalId;
     }
 
     public String getOrderNumber() {

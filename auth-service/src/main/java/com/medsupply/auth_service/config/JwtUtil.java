@@ -1,5 +1,6 @@
 package com.medsupply.auth_service.config;
 
+import com.medsupply.auth_service.entity.Hospital;
 import com.medsupply.auth_service.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -27,19 +28,24 @@ public class JwtUtil {
         this.issuer = issuer;
     }
 
-    public String generateToken(User user) {
+    public String generateToken(User user, Hospital hospital) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .issuer(issuer)
                 .subject(user.getEmail())
                 .claim("userId", user.getId() != null ? user.getId().toString() : null)
                 .claim("role", user.getRole().name())
                 .issuedAt(now)
-                .expiration(expiry)
-                .signWith(signingKey)
-                .compact();
+                .expiration(expiry);
+
+        if (hospital != null) {
+            builder.claim("hospitalId", hospital.getId().toString());
+            builder.claim("hospitalName", hospital.getHospitalName());
+        }
+
+        return builder.signWith(signingKey).compact();
     }
 
     public Claims parseClaims(String token) {

@@ -8,7 +8,7 @@ import java.util.List;
 
 public class OrderRequest {
 
-    @NotBlank(message = "Facility name is required")
+
     private String facilityName;
 
     @NotEmpty(message = "Order must contain at least one product")

@@ -1,6 +1,6 @@
 package com.medsupply.auth_service.controller;
 
-
+import com.medsupply.auth_service.dto.request.CreateStaffRequest;
 import com.medsupply.auth_service.dto.request.LoginRequest;
 import com.medsupply.auth_service.dto.request.RegisterRequest;
 import com.medsupply.auth_service.dto.response.AuthResponse;
@@ -24,6 +24,14 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    }
+
+    @PostMapping("/admin/users")
+    public ResponseEntity<UserResponse> createStaffUser(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Valid @RequestBody CreateStaffRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(authService.createStaffUser(authHeader, request));
     }
 
     @PostMapping("/login")
