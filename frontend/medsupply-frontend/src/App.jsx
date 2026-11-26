@@ -10,6 +10,7 @@ import CatalogView from './components/CatalogView';
 import InventoryView from './components/InventoryView';
 import OrdersView from './components/OrdersView';
 import CartDrawer from './components/CartDrawer';
+import PaymentReturnPage from './components/PaymentReturnPage';
 
 const EMPTY_STAFF_FORM = {
   name: '',
@@ -88,19 +89,49 @@ function DashboardShell() {
     return map;
   }, [products]);
 
-  const handleAddToCart = (product) => {
+ const handleAddToCart = (product, quantityToAdd = 1) => {
     const maxStock = inventoryMap[product.id]?.availableQuantity ?? 0;
+    const requested = Math.max(1, parseInt(quantityToAdd, 10) || 1);
+
+    if (maxStock <= 0) {
+      notify('error', `${product.productName} is currently out of stock`);
+      return;
+    }
+
+    const existing = cart.find((c) => c.product.id === product.id);
+    const currentQty = existing ? existing.quantity : 0;
+    const remaining = maxStock - currentQty;
+
+    if (remaining <= 0) {
+      notify(
+        'error',
+        `Maximum available stock (${maxStock}) for ${product.productName} is already in your cart`
+      );
+      return;
+    }
+
+    const addedQty = Math.min(requested, remaining);
+
     setCart((prev) => {
-      const existing = prev.find((c) => c.product.id === product.id);
-      if (existing) {
-        if (existing.quantity >= maxStock) return prev;
+      const found = prev.find((c) => c.product.id === product.id);
+      if (found) {
         return prev.map((c) =>
-          c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c
+          c.product.id === product.id
+            ? { ...c, quantity: Math.min(maxStock, c.quantity + addedQty) }
+            : c
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: addedQty }];
     });
-    notify('success', `Added ${product.productName} to cart`);
+
+    if (addedQty < requested) {
+      notify(
+        'success',
+        `Added ${addedQty} of ${product.productName} (max stock ${maxStock} reached)`
+      );
+    } else {
+      notify('success', `Added ${addedQty} × ${product.productName} to cart`);
+    }
   };
 
   const handleUpdateQty = (productId, newQty) => {
@@ -108,8 +139,14 @@ function DashboardShell() {
       setCart((prev) => prev.filter((c) => c.product.id !== productId));
       return;
     }
+    const maxStock = inventoryMap[productId]?.availableQuantity;
+    const clampedQty =
+      typeof maxStock === 'number' && maxStock > 0
+        ? Math.min(newQty, maxStock)
+        : newQty;
+
     setCart((prev) =>
-      prev.map((c) => (c.product.id === productId ? { ...c, quantity: newQty } : c))
+      prev.map((c) => (c.product.id === productId ? { ...c, quantity: clampedQty } : c))
     );
   };
 
@@ -253,6 +290,19 @@ function DashboardShell() {
                   orders={orders}
                   productLookup={productLookup}
                   onDataChanged={syncAllData}
+                  notify={notify}
+                />
+              ) : (
+                <Navigate to="/catalog" replace />
+              )
+            }
+          />
+          <Route
+            path="/payments/coindrop/return"
+            element={
+              canOrder ? (
+                <PaymentReturnPage
+                  onPaymentUpdated={syncAllData}
                   notify={notify}
                 />
               ) : (

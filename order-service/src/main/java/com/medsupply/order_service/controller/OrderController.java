@@ -27,9 +27,10 @@ public class OrderController {
     public ResponseEntity<OrderResponse> createOrder(
             @Valid @RequestBody OrderRequest request,
             @RequestHeader("X-User-Id") UUID buyerUserId,
-            @RequestHeader("X-User-Role") String userRole) {
+            @RequestHeader("X-User-Role") String userRole,
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
 
-        Order order = orderService.createOrder(request, buyerUserId, userRole);
+        Order order = orderService.createOrder(request, buyerUserId, userRole, userEmail);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -51,6 +52,17 @@ public class OrderController {
             @RequestHeader("X-User-Role") String userRole) {
 
         Order order = orderService.getOrderById(id, buyerUserId, userRole);
+
+        return ResponseEntity.ok(OrderResponse.fromEntity(order));
+    }
+
+    @GetMapping("/by-number/{orderNumber}")
+    public ResponseEntity<OrderResponse> getOrderByOrderNumber(
+            @PathVariable String orderNumber,
+            @RequestHeader("X-User-Id") UUID buyerUserId,
+            @RequestHeader("X-User-Role") String userRole) {
+
+        Order order = orderService.getOrderByOrderNumber(orderNumber, buyerUserId, userRole);
 
         return ResponseEntity.ok(OrderResponse.fromEntity(order));
     }

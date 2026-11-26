@@ -13,9 +13,11 @@ import com.medsupply.order_service.dto.response.OrderResponse;
 import com.medsupply.order_service.entity.Order;
 import com.medsupply.order_service.entity.OrderItem;
 import com.medsupply.order_service.entity.OrderStatus;
+import com.medsupply.order_service.entity.PaymentStatus;
 import com.medsupply.order_service.exception.InsufficientStockException;
 import com.medsupply.order_service.exception.ResourceNotFoundException;
 import com.medsupply.order_service.repository.OrderRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,34 +35,49 @@ public class OrderService {
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
     private final HospitalClient hospitalClient;
+    private final String defaultCurrency;
 
     public OrderService(
             OrderRepository orderRepository,
             ProductClient productClient,
             InventoryClient inventoryClient,
-            HospitalClient hospitalClient) {
+            HospitalClient hospitalClient,
+            @Value("${medsupply.currency:USD}") String defaultCurrency) {
 
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.inventoryClient = inventoryClient;
         this.hospitalClient = hospitalClient;
+        this.defaultCurrency = defaultCurrency;
     }
 
     @Transactional
-    public Order createOrder(OrderRequest request, UUID buyerUserId, String userRole) {
+    public Order createOrder(
+            OrderRequest request,
+            UUID buyerUserId,
+            String userRole,
+            String userEmail) {
 
         UUID verifiedHospitalId = null;
         String resolvedFacilityName;
+        String buyerName;
+        String buyerEmail;
 
         if ("HOSPITAL_BUYER".equals(userRole)) {
             HospitalResponse hospital = hospitalClient.getHospitalByUserId(buyerUserId);
             verifiedHospitalId = hospital.id();
             resolvedFacilityName = hospital.hospitalName();
+            String first = hospital.representativeFirstName() != null ? hospital.representativeFirstName().trim() : "";
+            String last = hospital.representativeLastName() != null ? hospital.representativeLastName().trim() : "";
+            buyerName = (first + " " + last).trim();
+            buyerEmail = hospital.email() != null ? hospital.email() : userEmail;
         } else {
             if (request.getFacilityName() == null || request.getFacilityName().trim().isEmpty()) {
                 throw new IllegalArgumentException("Facility name is required");
             }
             resolvedFacilityName = request.getFacilityName().trim();
+            buyerName = "Administrator";
+            buyerEmail = userEmail;
         }
 
         Set<UUID> productIds = new HashSet<>();
@@ -132,8 +149,12 @@ public class OrderService {
         order.setFacilityName(resolvedFacilityName);
         order.setHospitalId(verifiedHospitalId);
         order.setBuyerUserId(buyerUserId);
+        order.setBuyerName(buyerName);
+        order.setBuyerEmail(buyerEmail);
         order.setTotalAmount(totalAmount);
-        order.setStatus(OrderStatus.CONFIRMED);
+        order.setCurrency(defaultCurrency);
+        order.setStatus(OrderStatus.PLACED);
+        order.setPaymentStatus(PaymentStatus.PENDING);
 
         for (OrderItem item : orderItems) {
             order.addItem(item);
@@ -187,6 +208,21 @@ public class OrderService {
         return findAccessibleOrder(orderId, buyerUserId, userRole);
     }
 
+    @Transactional(readOnly = true)
+    public Order getOrderByOrderNumber(String orderNumber, UUID buyerUserId, String userRole) {
+        if ("ADMIN".equals(userRole)) {
+            return orderRepository.findByOrderNumber(orderNumber)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Order not found with number: " + orderNumber
+                    ));
+        }
+
+        return orderRepository.findByOrderNumberAndBuyerUserId(orderNumber, buyerUserId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Order not found with number: " + orderNumber
+                ));
+    }
+
     @Transactional
     public Order updateOrderStatus(
             UUID orderId,
@@ -213,6 +249,12 @@ public class OrderService {
         if (newStatus != OrderStatus.CANCELLED) {
             throw new IllegalArgumentException(
                     "Only CANCELLED status is currently supported"
+            );
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new IllegalStateException(
+                    "A paid order cannot be cancelled directly"
             );
         }
 

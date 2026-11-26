@@ -26,6 +26,25 @@ public class GlobalExceptionHandler {
             String path
     ) {}
 
+
+
+
+
+
+    @ExceptionHandler(InvalidSignatureException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidSignature(
+            InvalidSignatureException ex,
+            HttpServletRequest request) {
+        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(PaymentConflictException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentConflict(
+            PaymentConflictException ex,
+            HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(
             ResourceNotFoundException ex,

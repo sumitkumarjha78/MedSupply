@@ -2,6 +2,7 @@ package com.medsupply.order_service.dto.response;
 
 import com.medsupply.order_service.entity.Order;
 import com.medsupply.order_service.entity.OrderStatus;
+import com.medsupply.order_service.entity.PaymentStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -17,7 +18,11 @@ public class OrderResponse {
     private UUID buyerUserId;
     private List<OrderItemResponse> items;
     private BigDecimal totalAmount;
+    private String currency;
     private OrderStatus status;
+    private PaymentStatus paymentStatus;
+    private String paymentReference;
+    private Instant paidAt;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -29,7 +34,11 @@ public class OrderResponse {
             UUID buyerUserId,
             List<OrderItemResponse> items,
             BigDecimal totalAmount,
+            String currency,
             OrderStatus status,
+            PaymentStatus paymentStatus,
+            String paymentReference,
+            Instant paidAt,
             Instant createdAt,
             Instant updatedAt) {
 
@@ -40,13 +49,16 @@ public class OrderResponse {
         this.buyerUserId = buyerUserId;
         this.items = items;
         this.totalAmount = totalAmount;
+        this.currency = currency;
         this.status = status;
+        this.paymentStatus = paymentStatus;
+        this.paymentReference = paymentReference;
+        this.paidAt = paidAt;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
 
     public static OrderResponse fromEntity(Order order) {
-
         List<OrderItemResponse> itemResponses =
                 order.getItems()
                         .stream()
@@ -61,7 +73,11 @@ public class OrderResponse {
                 order.getBuyerUserId(),
                 itemResponses,
                 order.getTotalAmount(),
+                order.getCurrency(),
                 order.getStatus(),
+                order.getPaymentStatus(),
+                order.getPaymentReference(),
+                order.getPaidAt(),
                 order.getCreatedAt(),
                 order.getUpdatedAt()
         );
@@ -95,8 +111,24 @@ public class OrderResponse {
         return totalAmount;
     }
 
+    public String getCurrency() {
+        return currency;
+    }
+
     public OrderStatus getStatus() {
         return status;
+    }
+
+    public PaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public String getPaymentReference() {
+        return paymentReference;
+    }
+
+    public Instant getPaidAt() {
+        return paidAt;
     }
 
     public Instant getCreatedAt() {

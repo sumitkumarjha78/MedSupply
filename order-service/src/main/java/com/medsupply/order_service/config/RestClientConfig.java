@@ -37,4 +37,14 @@ public class RestClientConfig {
                 .baseUrl(baseUrl)
                 .build();
     }
+
+    @Bean
+    public RestClient coindropRestClient(
+            RestClient.Builder builder,
+            CoinDropProperties coinDropProperties) {
+
+        return builder.clone()
+                .baseUrl(coinDropProperties.getBaseUrl())
+                .build();
+    }
 }

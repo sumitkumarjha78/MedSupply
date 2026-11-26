@@ -11,7 +11,7 @@ import {
   Ban,
 } from 'lucide-react';
 import { productApi } from '../api/medsupplyApi';
-
+import QuantityControl from './QuantityControl';
 const EMPTY_FORM = {
   productName: '',
   sku: '',
@@ -41,6 +41,7 @@ export default function CatalogView({
   const [editingProduct, setEditingProduct] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [draftQty, setDraftQty] = useState({});
 
   const categories = useMemo(() => {
     const set = new Set(products.map((p) => p.category).filter(Boolean));
@@ -158,11 +159,10 @@ export default function CatalogView({
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                selectedCategory === cat
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${selectedCategory === cat
                   ? 'bg-teal-600 text-white shadow-2xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-              }`}
+                }`}
             >
               {cat === 'ALL' ? 'All Supplies' : cat}
             </button>
@@ -206,11 +206,10 @@ export default function CatalogView({
             return (
               <div
                 key={product.id}
-                className={`group bg-white rounded-2xl border transition flex flex-col justify-between p-5 shadow-2xs ${
-                  product.active
+                className={`group bg-white rounded-2xl border transition flex flex-col justify-between p-5 shadow-2xs ${product.active
                     ? 'border-slate-200/80 hover:border-teal-300 hover:shadow-md hover:shadow-slate-900/5'
                     : 'border-slate-200 bg-slate-50/70 opacity-75'
-                }`}
+                  }`}
               >
                 <div>
                   <div className="flex items-center justify-between gap-2">
@@ -279,15 +278,29 @@ export default function CatalogView({
                       </>
                     )}
 
-                    {canOrder && (
-                      <button
-                        disabled={!product.active || remainingToAdd === 0}
-                        onClick={() => onAddToCart(product)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:bg-slate-100 disabled:text-slate-400 text-white text-xs font-semibold shadow-2xs transition cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        <span>{inCartQty > 0 ? `In Cart (${inCartQty})` : 'Add to Cart'}</span>
-                      </button>
+                    {canOrder && product.active && available > 0 && (
+                      <div className="flex items-center gap-2">
+                        <QuantityControl
+                          value={draftQty[product.id] ?? 1}
+                          min={1}
+                          max={available}
+                          onChange={(val) => setDraftQty((prev) => ({ ...prev, [product.id]: val }))}
+                          onMaxExceeded={(limit) =>
+                            notify('error', `Only ${limit} units available for ${product.productName}`)
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const qty = draftQty[product.id] ?? 1;
+                            onAddToCart(product, qty);
+                            setDraftQty((prev) => ({ ...prev, [product.id]: 1 }));
+                          }}
+                          className="flex-1 py-2 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold transition cursor-pointer"
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

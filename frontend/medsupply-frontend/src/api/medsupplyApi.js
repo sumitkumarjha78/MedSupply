@@ -39,6 +39,14 @@ export const orderApi = {
     axiosClient.post('/api/orders', { facilityName, items }).then((r) => r.data),
   getAll: () => axiosClient.get('/api/orders').then((r) => r.data),
   getById: (id) => axiosClient.get(`/api/orders/${id}`).then((r) => r.data),
+  getByOrderNumber: (orderNumber) =>
+    axiosClient.get(`/api/orders/by-number/${encodeURIComponent(orderNumber)}`).then((r) => r.data),
   cancel: (id) =>
     axiosClient.patch(`/api/orders/${id}/status`, { status: 'CANCELLED' }).then((r) => r.data),
+};
+
+// CoinDrop Hosted Checkout (Backend-signed; no secrets in frontend)
+export const paymentApi = {
+  createCoinDropCheckout: (orderId) =>
+    axiosClient.post(`/api/orders/${orderId}/payments/coindrop/checkout`).then((r) => r.data),
 };

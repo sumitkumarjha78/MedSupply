@@ -46,6 +46,14 @@ public class JwtAuthAndRbacFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
+        // 1. Allow preflight OPTIONS, public /api/auth/** (excluding /api/auth/admin/**),
+//    and HMAC-authenticated CoinDrop server-to-server routes (/api/payments/coindrop/**)
+        if (method == HttpMethod.OPTIONS
+                || (path.startsWith("/api/auth/") && !path.startsWith("/api/auth/admin"))
+                || path.startsWith("/api/payments/coindrop/")) {
+            return chain.filter(exchange);
+        }
+
         // 2. Block internal-only endpoints from external gateway access
         if (path.startsWith("/api/internal/")
                 || (path.startsWith("/api/inventory/") && (path.endsWith("/deduct") || path.endsWith("/restore")))) {
